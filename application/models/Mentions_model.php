@@ -6,25 +6,13 @@ class Mentions_model extends CI_Model {
         $this->load->database();
     }
 
-    public function esta_vazia ($user_name='', $tag='') {
-        $id_user = $this->get_User_ID ($user_name);
+    public function esta_vazia ($tag='') {
+        $id_user = $this->session->userdata('id_user');
         $tag_id = $this->get_Tag_ID($tag);
 
         $query = $this->db->query("SELECT * FROM tweets WHERE user_id='$id_user' AND tag_id='$tag_id' LIMIT 1");
 
         return $query->num_rows();
-    }
-
-    public function get_User_ID($user_name) {
-        $var = $this->db->query("SELECT id FROM usuarios WHERE user='$user_name'")->result_array();
-        
-        if (sizeof($var) != 0) {
-            $var = $var[0]['id'];    
-        } else {
-            return 0;
-        }    
-
-        return $var;
     }
 
     public function get_Tag_ID($tag_name='') {
@@ -43,23 +31,38 @@ class Mentions_model extends CI_Model {
         return $var;
     }
 
-    public function listagem_mentions($user_name='', $tag='') {
+    public function mention_crawler ($tag='') {
+        if ($tag[0] != "#") {
+            $tag = '#'.substr($tag, 0, strlen($tag));
+        }
+
+        $this->load->library('twitterlib');
+        $res = $this->twitterlib->searchone($tag);
+
+        return $res;
+    }
+
+    public function listagem_mentions($tag='') {
         $tag_id = $this->get_Tag_ID($tag);
-        $user_id = $this->get_User_ID($user_name);
-        $query = $this->db->query("SELECT * FROM tweets WHERE tag_id='$tag_id' AND user_id='$user_id'")->result_array();
+        $id_user = $this->session->userdata('id_user');
+        
+        $query = $this->db->query("SELECT * FROM tweets WHERE tag_id='$tag_id' AND user_id='$id_user'")->result_array();
 
         return $query;
     }
 
-    public function deletaMention($user_name='',$tag='') {
+    public function deleta_mentions($tag='') {
         $tag_id = $this->get_Tag_ID($tag);
-        $user_id = $this->get_User_ID($user_name);
+        $id_user = $this->session->userdata('id_user');
 
-        $res = $this->db->query("DELETE FROM tweets WHERE tag_id='$tag_id' AND user_id='$user_id'");
+        $var = $this->listagem_mentions($tag);
 
-        var_dump($res);
-        die;
+        if (sizeof($var)!=0) {
+            $res = $this->db->query("DELETE FROM tweets WHERE tag_id='$tag_id' AND user_id='$id_user'");
+        } else {
+            return 100;
+        }
 
-        return $res;
+        return 1;
     }
 }

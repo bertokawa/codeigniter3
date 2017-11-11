@@ -194,7 +194,7 @@ class Twitterlib {
 	* mySQL but this was made for people who absolutely have to use PHP.
 	*
 	*/
-	public function searchone($cachetime=null) {
+	public function searchone($tag='', $cachetime=null) {
 		// faz a conexão com o TWITTER
 		// do oauth
 		$this->CI->load->library('twitteroauth');
@@ -212,52 +212,58 @@ class Twitterlib {
 			foreach ($content->errors as $error) {
 				echo $error->code.' '.$error->message.PHP_EOL;
 			}
-			die;
+
+			return 1000;
 		} else {
 			// if the number of minutes to cache has been set
-			foreach ($this->terms as $key => $query) { 
-				# code...
-			
-			if($cachetime != null) {
-				// load the memcache adapter
-				$this->CI->load->driver('cache', array('adapter' => 'memcached', 'backup' => 'file'));
-			}
-
-			// if we are not caching or if our cache has run out
-			if($cachetime == null || ! $content = $this->CI->cache->get('twitter-api-search') ) {
-
-				//$query=implode('+OR+',$this->terms);
-
-				$query_data = array('q' => $query, 'include_entities' => 'true','count' => 15,'result_type'=>'mixed');
-
-				$url = 'https://api.twitter.com/1.1/search/tweets.json';
-
-				$content=$connection->get($url,$query_data);
-
-				// if we want to cache for an amount of time
+			//foreach ($this->terms as $key => $query) {
+			$query=$tag;
+			$res1=100;
 				if($cachetime != null) {
-					// cache the results
-					$this->CI->cache->save('twitter-api-search', $content, $cachetime*60);
+					// load the memcache adapter
+					$this->CI->load->driver('cache',array('adapter'=>'memcached','backup'=>'file'));
 				}
-			}
 
-			// if we have new results
-			if(isset($content)) {
-				if(isset($content->errors)) {
-					foreach ($content->errors as $error) {
-						echo $error->code.' '.$error->message.PHP_EOL;
+				// if we are not caching or if our cache has run out
+				if($cachetime == null || !$content=$this->CI->cache->get('twitter-api-search')) {
+
+					//$query=implode('+OR+',$this->terms);
+
+					$query_data = array('q' => $query, 'include_entities' => 'true','count' => 15,'result_type'=>'mixed');
+
+					$url = 'https://api.twitter.com/1.1/search/tweets.json';
+
+					$content=$connection->get($url,$query_data);
+
+					// if we want to cache for an amount of time
+					if($cachetime != null) {
+						// cache the results
+						$this->CI->cache->save('twitter-api-search', $content, $cachetime*60);
 					}
-					die;
 				}
-				
-				if (isset($content->statuses)) {
-					foreach ($content->statuses as $tweet) {
-						// process each tweet one at a time
-						$this->process($tweet, $query);
+
+				// if we have new results
+				if(isset($content)) {
+					if(isset($content->errors)) {
+						foreach ($content->errors as $error) {
+							echo $error->code.' '.$error->message.PHP_EOL;
+						}
+						die;
+					}
+					
+					if (isset($content->statuses)) {
+						foreach ($content->statuses as $tweet) {
+							// process each tweet one at a time
+							$res1 = $this->process($tweet, $query);
+						}
+
+						
 					}
 				}
-			}
-		}}
+			//}
+				return $res1;
+
+		}
 	}
 
 	/**
@@ -266,11 +272,15 @@ class Twitterlib {
 	*/
 	public function process ($data=null, $query=null) {
 		// if the tweet has an id, if the tweet does not already exist in db, if there is at least one hashtag
+		$res=100;
 		if (((is_array($data) && isset($data['id_str'])) || (is_object($data) && isset($data->id_str))) && !$this->exists($data)) {
 			if($this->save($data,$query)) {
 				//echo 'Saved a tweet!'.PHP_EOL;
+				$res=1;
 			}
 		}
+
+		return $res;
 	}
 
 	/**
@@ -336,8 +346,6 @@ class Twitterlib {
 			// if we have detected a user id in the tweet array
 			if(isset($user_id))
 			{
-				// passa ao user_id, o id referente ao usuario do nosso site.
-				
 				$user_session = $_SESSION['id_user'];
 				$var_db_data=$data->created_at;
 
